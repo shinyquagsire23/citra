@@ -82,6 +82,7 @@ constexpr u32 MakeMagic(char a, char b, char c, char d) {
 class AppLoader : NonCopyable {
 public:
     AppLoader(FileUtil::IOFile&& file) : file(std::move(file)) { }
+    AppLoader(FileUtil::IOFile&& file, FileUtil::IOFile&& base_file) : file(std::move(file)), base_file(std::move(base_file)) { }
     virtual ~AppLoader() { }
 
     /**
@@ -144,8 +145,21 @@ public:
         return ResultStatus::ErrorNotImplemented;
     }
 
+    /**
+     * Get the update RomFS of the application
+     * Since the RomFS can be huge, we return a file reference instead of copying to a buffer
+     * @param romfs_file The file containing the RomFS
+     * @param offset The offset the romfs begins on
+     * @param size The size of the romfs
+     * @return ResultStatus result of function
+     */
+    virtual ResultStatus ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset, u64& size) {
+        return ResultStatus::ErrorNotImplemented;
+    }
+
 protected:
     FileUtil::IOFile file;
+    FileUtil::IOFile base_file;
     bool is_loaded = false;
 };
 
@@ -160,6 +174,6 @@ extern const std::initializer_list<Kernel::AddressMapping> default_address_mappi
  * @param filename String filename of bootable file
  * @return best loader for this file
  */
-std::unique_ptr<AppLoader> GetLoader(const std::string& filename);
+std::unique_ptr<AppLoader> GetLoader(const std::string& filename, const std::string& base_filename);
 
 } // namespace

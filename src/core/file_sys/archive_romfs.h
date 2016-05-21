@@ -33,6 +33,10 @@ private:
     std::shared_ptr<FileUtil::IOFile> romfs_file;
     u64 data_offset;
     u64 data_size;
+
+    std::shared_ptr<FileUtil::IOFile> update_romfs_file;
+    u64 update_data_offset;
+    u64 update_data_size;
 };
 
 } // namespace FileSys

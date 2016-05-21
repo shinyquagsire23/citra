@@ -158,9 +158,6 @@ ResultStatus AppLoader_NCCH::LoadExec() {
         Kernel::g_current_process->resource_limit = Kernel::ResourceLimit::GetForCategory(
             static_cast<Kernel::ResourceLimitCategory>(exheader_header.arm11_system_local_caps.resource_limit_category));
 
-        // Set the default CPU core for this process
-        Kernel::g_current_process->ideal_processor = exheader_header.arm11_system_local_caps.ideal_processor;
-
         // Copy data while converting endianess
         std::array<u32, ARRAY_SIZE(exheader_header.arm11_kernel_caps.descriptors)> kernel_caps;
         std::copy_n(exheader_header.arm11_kernel_caps.descriptors, kernel_caps.size(), begin(kernel_caps));
@@ -274,7 +271,7 @@ ResultStatus AppLoader_NCCH::LoadExeFS() {
     LOG_DEBUG(Loader, "Thread priority:             0x%X"  , priority);
     LOG_DEBUG(Loader, "Resource limit category:     %d"    , resource_limit_category);
 
-    if (exheader_header.arm11_system_local_caps.program_id != ncch_header.program_id) {
+    if (ncch_header.program_id & 0xFFFFFFF1FFFFFFFF != exheader_header.arm11_system_local_caps.program_id) {
         LOG_ERROR(Loader, "ExHeader Program ID mismatch: the ROM is probably encrypted.");
         return ResultStatus::ErrorEncrypted;
     }
@@ -290,6 +287,47 @@ ResultStatus AppLoader_NCCH::LoadExeFS() {
     file.Seek(exefs_offset + ncch_offset, SEEK_SET);
     if (file.ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header))
         return ResultStatus::Error;
+
+    if(base_file.IsOpen())
+    {
+            // Reset read pointer in case this file has been read before.
+        base_file.Seek(0, SEEK_SET);
+
+        if (base_file.ReadBytes(&base_ncch_header, sizeof(NCCH_Header)) != sizeof(NCCH_Header))
+            return ResultStatus::Error;
+
+        // Skip NCSD header and load first NCCH (NCSD is just a container of NCCH files)...
+        if (MakeMagic('N', 'C', 'S', 'D') == base_ncch_header.magic) {
+            LOG_WARNING(Loader, "Only loading the first (bootable) NCCH within the NCSD file!");
+            base_ncch_offset = 0x4000;
+            base_file.Seek(base_ncch_offset, SEEK_SET);
+            base_file.ReadBytes(&base_ncch_header, sizeof(NCCH_Header));
+        }
+
+        // Verify we are loading the correct file type...
+        if (MakeMagic('N', 'C', 'C', 'H') != base_ncch_header.magic)
+            return ResultStatus::ErrorInvalidFormat;
+
+        // Read ExHeader...
+
+        if (base_file.ReadBytes(&base_exheader_header, sizeof(ExHeader_Header)) != sizeof(ExHeader_Header))
+            return ResultStatus::Error;
+
+        LOG_INFO(Loader,  "Base Name:                        %s"    , base_exheader_header.codeset_info.name);
+        LOG_INFO(Loader,  "Base Program ID:                  %016llX" , base_ncch_header.program_id);
+
+        // Read ExeFS...
+
+        base_exefs_offset = base_ncch_header.exefs_offset * kBlockSize;
+        u32 base_exefs_size = base_ncch_header.exefs_size * kBlockSize;
+
+        LOG_DEBUG(Loader, "Base ExeFS offset:                0x%08X", base_exefs_offset);
+        LOG_DEBUG(Loader, "Base ExeFS size:                  0x%08X", base_exefs_size);
+
+        base_file.Seek(base_exefs_offset + base_ncch_offset, SEEK_SET);
+        if (base_file.ReadBytes(&base_exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header))
+            return ResultStatus::Error;
+    }
 
     is_exefs_loaded = true;
     return ResultStatus::Success;
@@ -330,6 +368,35 @@ ResultStatus AppLoader_NCCH::ReadLogo(std::vector<u8>& buffer) {
 }
 
 ResultStatus AppLoader_NCCH::ReadRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset, u64& size) {
+    if (!base_file.IsOpen())
+        return ResultStatus::Error;
+
+    // Check if the NCCH has a RomFS...
+    if (base_ncch_header.romfs_offset != 0 && base_ncch_header.romfs_size != 0) {
+        u32 romfs_offset = base_ncch_offset + (base_ncch_header.romfs_offset * kBlockSize) + 0x1000;
+        u32 romfs_size = (base_ncch_header.romfs_size * kBlockSize) - 0x1000;
+
+        LOG_DEBUG(Loader, "Base RomFS offset:           0x%08X", romfs_offset);
+        LOG_DEBUG(Loader, "Base RomFS size:             0x%08X", romfs_size);
+
+        if (base_file.GetSize () < romfs_offset + romfs_size)
+            return ResultStatus::Error;
+
+        // We reopen the file, to allow its position to be independent from file's
+        romfs_file = std::make_shared<FileUtil::IOFile>(base_filepath, "rb");
+        if (!romfs_file->IsOpen())
+            return ResultStatus::Error;
+
+        offset = romfs_offset;
+        size = romfs_size;
+
+        return ResultStatus::Success;
+    }
+    LOG_DEBUG(Loader, "Base NCCH has no RomFS");
+    return ResultStatus::ErrorNotUsed;
+}
+
+ResultStatus AppLoader_NCCH::ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset, u64& size) {
     if (!file.IsOpen())
         return ResultStatus::Error;
 

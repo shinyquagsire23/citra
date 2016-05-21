@@ -21,10 +21,13 @@ ArchiveFactory_RomFS::ArchiveFactory_RomFS(Loader::AppLoader& app_loader) {
     if (Loader::ResultStatus::Success != app_loader.ReadRomFS(romfs_file, data_offset, data_size)) {
         LOG_ERROR(Service_FS, "Unable to read RomFS!");
     }
+    if (Loader::ResultStatus::Success != app_loader.ReadUpdateRomFS(update_romfs_file, update_data_offset, update_data_size)) {
+        LOG_ERROR(Service_FS, "Unable to read update RomFS!");
+    }
 }
 
 ResultVal<std::unique_ptr<ArchiveBackend>> ArchiveFactory_RomFS::Open(const Path& path) {
-    auto archive = std::make_unique<IVFCArchive>(romfs_file, data_offset, data_size);
+    auto archive = std::make_unique<IVFCArchive>(romfs_file, data_offset, data_size, update_romfs_file, update_data_offset, update_data_size);
     return MakeResult<std::unique_ptr<ArchiveBackend>>(std::move(archive));
 }
 

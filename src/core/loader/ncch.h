@@ -163,8 +163,8 @@ namespace Loader {
 /// Loads an NCCH file (e.g. from a CCI, or the first NCCH in a CXI)
 class AppLoader_NCCH final : public AppLoader {
 public:
-    AppLoader_NCCH(FileUtil::IOFile&& file, const std::string& filepath)
-        : AppLoader(std::move(file)), filepath(filepath) { }
+    AppLoader_NCCH(FileUtil::IOFile&& file, FileUtil::IOFile&& base_file, const std::string& filepath, const std::string& base_filepath)
+        : AppLoader(std::move(file), std::move(base_file)), filepath(filepath), base_filepath(base_filepath) { }
 
     /**
      * Returns the type of the file
@@ -223,6 +223,7 @@ public:
      * @return ResultStatus result of function
      */
     ResultStatus ReadRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset, u64& size) override;
+    ResultStatus ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset, u64& size) override;
 
 private:
 
@@ -259,11 +260,19 @@ private:
     u32             ncch_offset = 0; // Offset to NCCH header, can be 0 or after NCSD header
     u32             exefs_offset = 0;
 
+    u32             base_ncch_offset = 0; // Offset to NCCH header, can be 0 or after NCSD header
+    u32             base_exefs_offset = 0;
+
     NCCH_Header     ncch_header;
     ExeFs_Header    exefs_header;
     ExHeader_Header exheader_header;
 
+    NCCH_Header     base_ncch_header;
+    ExeFs_Header    base_exefs_header;
+    ExHeader_Header base_exheader_header;
+
     std::string     filepath;
+    std::string     base_filepath;
 };
 
 } // namespace Loader
