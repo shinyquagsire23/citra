@@ -70,6 +70,7 @@ int main(int argc, char **argv) {
     }
 #endif
     std::string boot_filename;
+    std::string base_filename;
 
     static struct option long_options[] = {
         { "gdbport", required_argument, 0, 'g' },
@@ -105,7 +106,8 @@ int main(int argc, char **argv) {
 #else
             boot_filename = argv[optind];
 #endif
-            optind++;
+            if(++optind < argc)
+                base_filename = argv[optind++];
         }
     }
 
@@ -124,6 +126,9 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+    if(base_filename.empty())
+        base_filename = boot_filename;
+
     log_filter.ParseFilterString(Settings::values.log_filter);
 
     // Apply the command line arguments
@@ -136,7 +141,7 @@ int main(int argc, char **argv) {
     System::Init(emu_window.get());
     SCOPE_EXIT({ System::Shutdown(); });
 
-    std::unique_ptr<Loader::AppLoader> loader = Loader::GetLoader(boot_filename);
+    std::unique_ptr<Loader::AppLoader> loader = Loader::GetLoader(boot_filename, base_filename);
     if (!loader) {
         LOG_CRITICAL(Frontend, "Failed to obtain loader for %s!", boot_filename.c_str());
         return -1;

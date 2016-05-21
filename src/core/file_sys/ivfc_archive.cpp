@@ -20,7 +20,13 @@ std::string IVFCArchive::GetName() const {
 }
 
 ResultVal<std::unique_ptr<FileBackend>> IVFCArchive::OpenFile(const Path& path, const Mode mode) const {
-    return MakeResult<std::unique_ptr<FileBackend>>(std::make_unique<IVFCFile>(romfs_file, data_offset, data_size));
+        std::vector<u8> vec_data = path.AsBinary();
+    const u32* data = reinterpret_cast<const u32*>(vec_data.data());
+
+    if(data[0])
+        return MakeResult<std::unique_ptr<FileBackend>>(std::make_unique<IVFCFile>(romfs_file, data_offset, data_size));
+    else
+        return MakeResult<std::unique_ptr<FileBackend>>(std::make_unique<IVFCFile>(base_romfs_file, base_data_offset, base_data_size));
 }
 
 ResultCode IVFCArchive::DeleteFile(const Path& path) const {

@@ -129,7 +129,7 @@ void GameListWorker::AddFstEntriesToGameList(const std::string& dir_path, unsign
             return false; // Breaks the callback loop.
 
         if (!FileUtil::IsDirectory(physical_name)) {
-            std::unique_ptr<Loader::AppLoader> loader = Loader::GetLoader(physical_name);
+            std::unique_ptr<Loader::AppLoader> loader = Loader::GetLoader(physical_name, physical_name);
             if (!loader)
                 return true;
 

@@ -99,8 +99,8 @@ const char* GetFileTypeString(FileType type) {
  * @param filepath the file full path (with name)
  * @return std::unique_ptr<AppLoader> a pointer to a loader object;  nullptr for unsupported type
  */
-static std::unique_ptr<AppLoader> GetFileLoader(FileUtil::IOFile&& file, FileType type,
-    const std::string& filename, const std::string& filepath) {
+static std::unique_ptr<AppLoader> GetFileLoader(FileUtil::IOFile&& file, FileUtil::IOFile&& base_file, FileType type,
+    const std::string& filename, const std::string& filepath, const std::string& base_filepath) {
     switch (type) {
 
     // 3DSX file format.
@@ -114,18 +114,23 @@ static std::unique_ptr<AppLoader> GetFileLoader(FileUtil::IOFile&& file, FileTyp
     // NCCH/NCSD container formats.
     case FileType::CXI:
     case FileType::CCI:
-        return std::make_unique<AppLoader_NCCH>(std::move(file), filepath);
+        return std::make_unique<AppLoader_NCCH>(std::move(file), std::move(base_file), filepath, base_filepath);
 
     default:
         return nullptr;
     }
 }
 
-std::unique_ptr<AppLoader> GetLoader(const std::string& filename) {
+std::unique_ptr<AppLoader> GetLoader(const std::string& filename, const std::string& base_filename) {
     FileUtil::IOFile file(filename, "rb");
     if (!file.IsOpen()) {
         LOG_ERROR(Loader, "Failed to load file %s", filename.c_str());
         return nullptr;
+    }
+
+    FileUtil::IOFile base_file(base_filename, "rb");
+    if (!base_file.IsOpen()) {
+        LOG_ERROR(Loader, "Failed to load base file %s", base_filename.c_str());
     }
 
     std::string filename_filename, filename_extension;
@@ -142,7 +147,7 @@ std::unique_ptr<AppLoader> GetLoader(const std::string& filename) {
 
     LOG_INFO(Loader, "Loading file %s as %s...", filename.c_str(), GetFileTypeString(type));
 
-    return GetFileLoader(std::move(file), type, filename_filename, filename);
+    return GetFileLoader(std::move(file), std::move(base_file), type, filename_filename, filename, base_filename);
 }
 
 } // namespace Loader

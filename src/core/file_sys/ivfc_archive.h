@@ -29,8 +29,10 @@ namespace FileSys {
  */
 class IVFCArchive : public ArchiveBackend {
 public:
+    IVFCArchive(std::shared_ptr<FileUtil::IOFile> base_file, u64 base_offset, u64 base_size, std::shared_ptr<FileUtil::IOFile> file, u64 offset, u64 size)
+        : base_romfs_file(base_file), base_data_offset(base_offset), base_data_size(base_size), romfs_file(file), data_offset(offset), data_size(size), is_base(false) {}
     IVFCArchive(std::shared_ptr<FileUtil::IOFile> file, u64 offset, u64 size)
-        : romfs_file(file), data_offset(offset), data_size(size) {}
+        : base_romfs_file(file), base_data_offset(offset), base_data_size(size), romfs_file(file), data_offset(offset), data_size(size), is_base(false) {}
 
     std::string GetName() const override;
 
@@ -43,11 +45,16 @@ public:
     bool RenameDirectory(const Path& src_path, const Path& dest_path) const override;
     std::unique_ptr<DirectoryBackend> OpenDirectory(const Path& path) const override;
     u64 GetFreeBytes() const override;
+    bool is_base;
 
 protected:
     std::shared_ptr<FileUtil::IOFile> romfs_file;
     u64 data_offset;
     u64 data_size;
+
+    std::shared_ptr<FileUtil::IOFile> base_romfs_file;
+    u64 base_data_offset;
+    u64 base_data_size;
 };
 
 class IVFCFile : public FileBackend {
