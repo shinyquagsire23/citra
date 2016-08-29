@@ -207,8 +207,27 @@ ResultStatus AppLoader_NCCH::LoadSectionExeFS(const char* name, std::vector<u8>&
                 // Decompress .code section...
                 u32 decompressed_size = LZSS_GetDecompressedSize(&temp_buffer[0], section.size);
                 buffer.resize(decompressed_size);
-                if (!LZSS_Decompress(&temp_buffer[0], section.size, &buffer[0], decompressed_size))
-                    return ResultStatus::ErrorInvalidFormat;
+                std::string str = "";
+                str += base_filepath;
+                str += ".codeover";
+                FileUtil::IOFile code_file = FileUtil::IOFile(str, "rb");
+
+                LOG_ERROR(Loader, "Looking for %s", str.c_str());
+
+                if (code_file.IsOpen())
+                {
+                    LOG_ERROR(Loader, "CODE OVERRIDE: %s", str.c_str());
+                    if (code_file.ReadBytes(&buffer[0], decompressed_size) != decompressed_size)
+                    {
+                        LOG_ERROR(Loader, "CODE OVERRIDE FAIL: %s", str.c_str());
+                        return ResultStatus::Error;
+                    }
+                }
+                else
+                {
+                    if (!LZSS_Decompress(&temp_buffer[0], section.size, &buffer[0], decompressed_size))
+                        return ResultStatus::ErrorInvalidFormat;
+                }
             } else {
                 // Section is uncompressed...
                 buffer.resize(section.size);
