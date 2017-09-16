@@ -18,6 +18,7 @@ namespace FileSys {
 
     static const int kMaxSections = 8;   ///< Maximum number of sections (files) in an ExeFs
     static const int kBlockSize = 0x200; ///< Size of ExeFS blocks (in bytes)
+    static const u64_le updateMask = 0x0000000e00000000;
 
     /**
      * Get the decompressed size of an LZSS compressed ExeFS file
@@ -101,6 +102,14 @@ namespace FileSys {
         file = FileUtil::IOFile(filepath, "rb");
     }
 
+    Loader::ResultStatus NCCHContainer::OpenFile(std::string filepath)
+    {
+        this->filepath = filepath;
+        file = FileUtil::IOFile(filepath, "rb");
+
+        LOG_DEBUG(Loader, "Opening %s", filepath.c_str());
+    }
+
     Loader::ResultStatus NCCHContainer::Load() {
         if (is_loaded)
             return Loader::ResultStatus::Success;
@@ -150,7 +159,7 @@ namespace FileSys {
         LOG_DEBUG(Loader, "System Mode:                 %d",
                   static_cast<int>(exheader_header.arm11_system_local_caps.system_mode));
 
-        if (exheader_header.arm11_system_local_caps.program_id != ncch_header.program_id) {
+        if (exheader_header.arm11_system_local_caps.program_id & ~updateMask != ncch_header.program_id) {
             LOG_ERROR(Loader, "ExHeader Program ID mismatch: the ROM is probably encrypted.");
             return Loader::ResultStatus::ErrorEncrypted;
         }
@@ -252,7 +261,7 @@ namespace FileSys {
         return Loader::ResultStatus::ErrorNotUsed;
     }
 
-    Loader::ResultStatus NCCHContainer::GetProgramID(u64_le& program_id)
+    Loader::ResultStatus NCCHContainer::ReadProgramId(u64_le& program_id)
     {
         Loader::ResultStatus result = Load();
         if (result != Loader::ResultStatus::Success)

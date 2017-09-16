@@ -169,9 +169,12 @@ namespace FileSys {
 class NCCHContainer {
 public:
     NCCHContainer(std::string filepath);
+    NCCHContainer() {}
+
+    Loader::ResultStatus OpenFile(std::string filepath);
 
     /**
-     * Ensure ExeFS is loaded and ready for reading sections
+     * Ensure ExeFS and exheader is loaded and ready for reading sections
      * @return ResultStatus result of function
      */
     Loader::ResultStatus Load();
@@ -184,10 +187,22 @@ public:
      */
     Loader::ResultStatus LoadSectionExeFS(const char* name, std::vector<u8>& buffer);
 
+    /**
+     * Get the RomFS of the NCCH container
+     * Since the RomFS can be huge, we return a file reference instead of copying to a buffer
+     * @param romfs_file The file containing the RomFS
+     * @param offset The offset the romfs begins on
+     * @param size The size of the romfs
+     * @return ResultStatus result of function
+     */
     Loader::ResultStatus ReadRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
                            u64& size);
 
-    Loader::ResultStatus GetProgramID(u64_le& program_id);
+    /**
+     * Get the Program ID of the NCCH container
+     * @return ResultStatus result of function
+     */
+    Loader::ResultStatus ReadProgramId(u64_le& program_id);
 
     NCCH_Header ncch_header;
     ExeFs_Header exefs_header;

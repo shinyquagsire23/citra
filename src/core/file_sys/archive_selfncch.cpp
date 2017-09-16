@@ -102,8 +102,7 @@ public:
 
         switch (static_cast<SelfNCCHFilePathType>(file_path.type)) {
         case SelfNCCHFilePathType::UpdateRomFS:
-            LOG_WARNING(Service_FS, "(STUBBED) open update RomFS");
-            return OpenRomFS();
+            return OpenUpdateRomFS();
 
         case SelfNCCHFilePathType::RomFS:
             return OpenRomFS();
@@ -179,6 +178,16 @@ private:
         }
     }
 
+    ResultVal<std::unique_ptr<FileBackend>> OpenUpdateRomFS() const {
+        if (ncch_data.update_romfs_file) {
+            return MakeResult<std::unique_ptr<FileBackend>>(std::make_unique<IVFCFile>(
+                ncch_data.update_romfs_file, ncch_data.update_romfs_offset, ncch_data.update_romfs_size));
+        } else {
+            LOG_INFO(Service_FS, "Unable to read update RomFS");
+            return ERROR_ROMFS_NOT_FOUND;
+        }
+    }
+
     ResultVal<std::unique_ptr<FileBackend>> OpenExeFS(const std::string& filename) const {
         if (filename == "icon") {
             if (ncch_data.icon) {
@@ -223,6 +232,13 @@ ArchiveFactory_SelfNCCH::ArchiveFactory_SelfNCCH(Loader::AppLoader& app_loader) 
         app_loader.ReadRomFS(romfs_file_, ncch_data.romfs_offset, ncch_data.romfs_size)) {
 
         ncch_data.romfs_file = std::move(romfs_file_);
+    }
+
+    std::shared_ptr<FileUtil::IOFile> update_romfs_file_;
+    if (Loader::ResultStatus::Success ==
+        app_loader.ReadUpdateRomFS(update_romfs_file_, ncch_data.update_romfs_offset, ncch_data.update_romfs_size)) {
+
+        ncch_data.update_romfs_file = std::move(update_romfs_file_);
     }
 
     std::vector<u8> buffer;

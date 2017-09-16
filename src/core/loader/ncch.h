@@ -19,7 +19,7 @@ namespace Loader {
 class AppLoader_NCCH final : public AppLoader {
 public:
     AppLoader_NCCH(FileUtil::IOFile&& file, const std::string& filepath)
-        : AppLoader(std::move(file)), filepath(filepath), ncch_container(filepath) {}
+        : AppLoader(std::move(file)), filepath(filepath), base_ncch(filepath) {}
 
     /**
      * Returns the type of the file
@@ -53,6 +53,9 @@ public:
     ResultStatus ReadRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
                            u64& size) override;
 
+    ResultStatus ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
+                           u64& size) override;
+
     ResultStatus ReadTitle(std::string& title) override;
 
 private:
@@ -66,10 +69,8 @@ private:
     /// Reads the region lockout info in the SMDH and send it to CFG service
     void ParseRegionLockoutInfo();
 
-    bool is_exefs_loaded = false;
-    bool is_compressed = false;
-
-    FileSys::NCCHContainer ncch_container;
+    FileSys::NCCHContainer base_ncch;
+    FileSys::NCCHContainer update_ncch;
     FileSys::NCCHContainer *overlay_ncch;
 
     std::string filepath;

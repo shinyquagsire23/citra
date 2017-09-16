@@ -28,6 +28,8 @@
 
 namespace Loader {
 
+static const u64_le updateMask = 0x0000000e00000000;
+
 FileType AppLoader_NCCH::IdentifyType(FileUtil::IOFile& file) {
     u32 magic;
     file.Seek(0x100, SEEK_SET);
@@ -43,15 +45,23 @@ FileType AppLoader_NCCH::IdentifyType(FileUtil::IOFile& file) {
     return FileType::Error;
 }
 
+static std::string GetUpdateNCCHPath(u64_le program_id) {
+    u32 high = (program_id | updateMask) >> 32;
+    u32 low = (program_id | updateMask);
+
+    return Common::StringFromFormat("%sNintendo 3DS/%s/%s/title/%08x/%08x/content/00000000.app",
+                                    FileUtil::GetUserPath(D_SDMC_IDX).c_str(), SYSTEM_ID, SDCARD_ID,
+                                    high, low);
+}
+
 std::pair<boost::optional<u32>, ResultStatus> AppLoader_NCCH::LoadKernelSystemMode() {
     if (!is_loaded) {
-        ResultStatus res = ncch_container.Load();
+        ResultStatus res = base_ncch.Load();
         if (res != ResultStatus::Success) {
             return std::make_pair(boost::none, res);
         }
 
-        //TODO(shinyquagsire23): swapping between NCCH containers for update overlay
-        overlay_ncch = &ncch_container;
+        overlay_ncch = &base_ncch;
     }
 
     // Set the system mode as the one from the exheader.
@@ -144,17 +154,23 @@ ResultStatus AppLoader_NCCH::Load() {
     if (is_loaded)
         return ResultStatus::ErrorAlreadyLoaded;
 
-    ResultStatus result = ncch_container.Load();
+    ResultStatus result = base_ncch.Load();
     if (result != ResultStatus::Success)
         return result;
 
     //TODO(shinyquagsire23): swapping between NCCH containers for update overlay
-    overlay_ncch = &ncch_container;
+    overlay_ncch = &base_ncch;
 
     ReadProgramId(ncch_program_id);
     std::string program_id{Common::StringFromFormat("%016" PRIX64, ncch_program_id)};
 
     LOG_INFO(Loader, "Program ID: %s", program_id.c_str());
+
+    update_ncch.OpenFile(GetUpdateNCCHPath(ncch_program_id));
+    result = update_ncch.Load();
+    if (result == ResultStatus::Success) {
+        overlay_ncch = &update_ncch;
+    }
 
     Core::Telemetry().AddField(Telemetry::FieldType::Session, "ProgramId", program_id);
 
@@ -196,7 +212,7 @@ ResultStatus AppLoader_NCCH::ReadLogo(std::vector<u8>& buffer) {
 }
 
 ResultStatus AppLoader_NCCH::ReadProgramId(u64& out_program_id) {
-    ResultStatus result = ncch_container.GetProgramID(out_program_id);
+    ResultStatus result = base_ncch.ReadProgramId(out_program_id);
     if (result != ResultStatus::Success)
         return result;
 
@@ -205,7 +221,16 @@ ResultStatus AppLoader_NCCH::ReadProgramId(u64& out_program_id) {
 
 ResultStatus AppLoader_NCCH::ReadRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
                                        u64& size) {
-    return ncch_container.ReadRomFS(romfs_file, offset, size);
+    return base_ncch.ReadRomFS(romfs_file, offset, size);
+}
+
+ResultStatus AppLoader_NCCH::ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
+                                       u64& size) {
+    ResultStatus result = update_ncch.ReadRomFS(romfs_file, offset, size);
+
+    //TODO(shinyquagsire23): Validate that this is the default behavior on hardware
+    if (result != ResultStatus::Success)
+        return base_ncch.ReadRomFS(romfs_file, offset, size);
 }
 
 ResultStatus AppLoader_NCCH::ReadTitle(std::string& title) {
