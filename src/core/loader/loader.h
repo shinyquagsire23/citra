@@ -175,7 +175,7 @@ public:
      * @return ResultStatus result of function
      */
     virtual ResultStatus ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
-                                   u64& size) {
+                                         u64& size) {
         return ResultStatus::ErrorNotImplemented;
     }
 

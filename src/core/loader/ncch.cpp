@@ -78,8 +78,8 @@ ResultStatus AppLoader_NCCH::LoadExec() {
 
     std::vector<u8> code;
     u64_le program_id;
-    if (ResultStatus::Success == ReadCode(code)
-        && ResultStatus::Success == ReadProgramId(program_id)) {
+    if (ResultStatus::Success == ReadCode(code) &&
+        ResultStatus::Success == ReadProgramId(program_id)) {
         std::string process_name = Common::StringFromFixedZeroTerminatedBuffer(
             (const char*)overlay_ncch->exheader_header.codeset_info.name, 8);
 
@@ -87,11 +87,13 @@ ResultStatus AppLoader_NCCH::LoadExec() {
 
         codeset->code.offset = 0;
         codeset->code.addr = overlay_ncch->exheader_header.codeset_info.text.address;
-        codeset->code.size = overlay_ncch->exheader_header.codeset_info.text.num_max_pages * Memory::PAGE_SIZE;
+        codeset->code.size =
+            overlay_ncch->exheader_header.codeset_info.text.num_max_pages * Memory::PAGE_SIZE;
 
         codeset->rodata.offset = codeset->code.offset + codeset->code.size;
         codeset->rodata.addr = overlay_ncch->exheader_header.codeset_info.ro.address;
-        codeset->rodata.size = overlay_ncch->exheader_header.codeset_info.ro.num_max_pages * Memory::PAGE_SIZE;
+        codeset->rodata.size =
+            overlay_ncch->exheader_header.codeset_info.ro.num_max_pages * Memory::PAGE_SIZE;
 
         // TODO(yuriks): Not sure if the bss size is added to the page-aligned .data size or just
         //               to the regular size. Playing it safe for now.
@@ -101,7 +103,8 @@ ResultStatus AppLoader_NCCH::LoadExec() {
         codeset->data.offset = codeset->rodata.offset + codeset->rodata.size;
         codeset->data.addr = overlay_ncch->exheader_header.codeset_info.data.address;
         codeset->data.size =
-            overlay_ncch->exheader_header.codeset_info.data.num_max_pages * Memory::PAGE_SIZE + bss_page_size;
+            overlay_ncch->exheader_header.codeset_info.data.num_max_pages * Memory::PAGE_SIZE +
+            bss_page_size;
 
         codeset->entrypoint = codeset->code.addr;
         codeset->memory = std::make_shared<std::vector<u8>>(std::move(code));
@@ -118,7 +121,8 @@ ResultStatus AppLoader_NCCH::LoadExec() {
             overlay_ncch->exheader_header.arm11_system_local_caps.ideal_processor;
 
         // Copy data while converting endianness
-        std::array<u32, ARRAY_SIZE(overlay_ncch->exheader_header.arm11_kernel_caps.descriptors)> kernel_caps;
+        std::array<u32, ARRAY_SIZE(overlay_ncch->exheader_header.arm11_kernel_caps.descriptors)>
+            kernel_caps;
         std::copy_n(overlay_ncch->exheader_header.arm11_kernel_caps.descriptors, kernel_caps.size(),
                     begin(kernel_caps));
         Kernel::g_current_process->ParseKernelCaps(kernel_caps.data(), kernel_caps.size());
@@ -158,7 +162,7 @@ ResultStatus AppLoader_NCCH::Load() {
     if (result != ResultStatus::Success)
         return result;
 
-    //TODO(shinyquagsire23): swapping between NCCH containers for update overlay
+    // TODO(shinyquagsire23): swapping between NCCH containers for update overlay
     overlay_ncch = &base_ncch;
 
     ReadProgramId(ncch_program_id);
@@ -224,11 +228,11 @@ ResultStatus AppLoader_NCCH::ReadRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_
     return base_ncch.ReadRomFS(romfs_file, offset, size);
 }
 
-ResultStatus AppLoader_NCCH::ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
-                                       u64& size) {
+ResultStatus AppLoader_NCCH::ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file,
+                                             u64& offset, u64& size) {
     ResultStatus result = update_ncch.ReadRomFS(romfs_file, offset, size);
 
-    //TODO(shinyquagsire23): Validate that this is the default behavior on hardware
+    // TODO(shinyquagsire23): Validate that this is the default behavior on hardware
     if (result != ResultStatus::Success)
         return base_ncch.ReadRomFS(romfs_file, offset, size);
 }

@@ -54,12 +54,11 @@ public:
                            u64& size) override;
 
     ResultStatus ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
-                           u64& size) override;
+                                 u64& size) override;
 
     ResultStatus ReadTitle(std::string& title) override;
 
 private:
-
     /**
      * Loads .code section into memory for booting
      * @return ResultStatus result of function
@@ -71,7 +70,7 @@ private:
 
     FileSys::NCCHContainer base_ncch;
     FileSys::NCCHContainer update_ncch;
-    FileSys::NCCHContainer *overlay_ncch;
+    FileSys::NCCHContainer* overlay_ncch;
 
     std::string filepath;
 };

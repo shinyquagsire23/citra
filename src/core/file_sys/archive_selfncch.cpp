@@ -181,7 +181,8 @@ private:
     ResultVal<std::unique_ptr<FileBackend>> OpenUpdateRomFS() const {
         if (ncch_data.update_romfs_file) {
             return MakeResult<std::unique_ptr<FileBackend>>(std::make_unique<IVFCFile>(
-                ncch_data.update_romfs_file, ncch_data.update_romfs_offset, ncch_data.update_romfs_size));
+                ncch_data.update_romfs_file, ncch_data.update_romfs_offset,
+                ncch_data.update_romfs_size));
         } else {
             LOG_INFO(Service_FS, "Unable to read update RomFS");
             return ERROR_ROMFS_NOT_FOUND;
@@ -236,7 +237,8 @@ ArchiveFactory_SelfNCCH::ArchiveFactory_SelfNCCH(Loader::AppLoader& app_loader) 
 
     std::shared_ptr<FileUtil::IOFile> update_romfs_file_;
     if (Loader::ResultStatus::Success ==
-        app_loader.ReadUpdateRomFS(update_romfs_file_, ncch_data.update_romfs_offset, ncch_data.update_romfs_size)) {
+        app_loader.ReadUpdateRomFS(update_romfs_file_, ncch_data.update_romfs_offset,
+                                   ncch_data.update_romfs_size)) {
 
         ncch_data.update_romfs_file = std::move(update_romfs_file_);
     }

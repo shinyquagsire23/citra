@@ -10,8 +10,8 @@
 #include <vector>
 #include "common/bit_field.h"
 #include "common/common_types.h"
-#include "common/swap.h"
 #include "common/file_util.h"
+#include "common/swap.h"
 #include "core/core.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,7 +196,7 @@ public:
      * @return ResultStatus result of function
      */
     Loader::ResultStatus ReadRomFS(std::shared_ptr<FileUtil::IOFile>& romfs_file, u64& offset,
-                           u64& size);
+                                   u64& size);
 
     /**
      * Get the Program ID of the NCCH container
