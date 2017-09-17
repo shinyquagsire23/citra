@@ -28,7 +28,7 @@
 
 namespace Loader {
 
-static const u64_le updateMask = 0x0000000e00000000;
+static const u64 UPDATE_MASK = 0x0000000e00000000;
 
 FileType AppLoader_NCCH::IdentifyType(FileUtil::IOFile& file) {
     u32 magic;
@@ -46,8 +46,8 @@ FileType AppLoader_NCCH::IdentifyType(FileUtil::IOFile& file) {
 }
 
 static std::string GetUpdateNCCHPath(u64_le program_id) {
-    u32 high = (program_id | updateMask) >> 32;
-    u32 low = (program_id | updateMask);
+    u32 high = static_cast<u32>((program_id | UPDATE_MASK) >> 32);
+    u32 low = static_cast<u32>((program_id | UPDATE_MASK) & 0xFFFFFFFF);
 
     return Common::StringFromFormat("%sNintendo 3DS/%s/%s/title/%08x/%08x/content/00000000.app",
                                     FileUtil::GetUserPath(D_SDMC_IDX).c_str(), SYSTEM_ID, SDCARD_ID,
@@ -60,8 +60,6 @@ std::pair<boost::optional<u32>, ResultStatus> AppLoader_NCCH::LoadKernelSystemMo
         if (res != ResultStatus::Success) {
             return std::make_pair(boost::none, res);
         }
-
-        overlay_ncch = &base_ncch;
     }
 
     // Set the system mode as the one from the exheader.
@@ -162,9 +160,6 @@ ResultStatus AppLoader_NCCH::Load() {
     if (result != ResultStatus::Success)
         return result;
 
-    // TODO(shinyquagsire23): swapping between NCCH containers for update overlay
-    overlay_ncch = &base_ncch;
-
     ReadProgramId(ncch_program_id);
     std::string program_id{Common::StringFromFormat("%016" PRIX64, ncch_program_id)};
 
@@ -232,7 +227,6 @@ ResultStatus AppLoader_NCCH::ReadUpdateRomFS(std::shared_ptr<FileUtil::IOFile>& 
                                              u64& offset, u64& size) {
     ResultStatus result = update_ncch.ReadRomFS(romfs_file, offset, size);
 
-    // TODO(shinyquagsire23): Validate that this is the default behavior on hardware
     if (result != ResultStatus::Success)
         return base_ncch.ReadRomFS(romfs_file, offset, size);
 }

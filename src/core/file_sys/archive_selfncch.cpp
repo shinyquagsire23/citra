@@ -228,19 +228,19 @@ private:
 };
 
 ArchiveFactory_SelfNCCH::ArchiveFactory_SelfNCCH(Loader::AppLoader& app_loader) {
-    std::shared_ptr<FileUtil::IOFile> romfs_file_;
+    std::shared_ptr<FileUtil::IOFile> romfs_file;
     if (Loader::ResultStatus::Success ==
-        app_loader.ReadRomFS(romfs_file_, ncch_data.romfs_offset, ncch_data.romfs_size)) {
+        app_loader.ReadRomFS(romfs_file, ncch_data.romfs_offset, ncch_data.romfs_size)) {
 
-        ncch_data.romfs_file = std::move(romfs_file_);
+        ncch_data.romfs_file = std::move(romfs_file);
     }
 
-    std::shared_ptr<FileUtil::IOFile> update_romfs_file_;
+    std::shared_ptr<FileUtil::IOFile> update_romfs_file;
     if (Loader::ResultStatus::Success ==
-        app_loader.ReadUpdateRomFS(update_romfs_file_, ncch_data.update_romfs_offset,
+        app_loader.ReadUpdateRomFS(update_romfs_file, ncch_data.update_romfs_offset,
                                    ncch_data.update_romfs_size)) {
 
-        ncch_data.update_romfs_file = std::move(update_romfs_file_);
+        ncch_data.update_romfs_file = std::move(update_romfs_file);
     }
 
     std::vector<u8> buffer;

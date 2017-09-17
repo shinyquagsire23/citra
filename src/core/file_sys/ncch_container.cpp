@@ -18,7 +18,7 @@ namespace FileSys {
 
 static const int kMaxSections = 8;   ///< Maximum number of sections (files) in an ExeFs
 static const int kBlockSize = 0x200; ///< Size of ExeFS blocks (in bytes)
-static const u64_le updateMask = 0x0000000e00000000;
+static const u64 UPDATE_MASK = 0x0000000e00000000;
 
 /**
  * Get the decompressed size of an LZSS compressed ExeFS file
@@ -163,7 +163,7 @@ Loader::ResultStatus NCCHContainer::Load() {
               static_cast<int>(exheader_header.arm11_system_local_caps.system_mode));
 
     if (exheader_header.arm11_system_local_caps.program_id &
-        ~updateMask != ncch_header.program_id) {
+        ~UPDATE_MASK != ncch_header.program_id) {
         LOG_ERROR(Service_FS, "ExHeader Program ID mismatch: the ROM is probably encrypted.");
         return Loader::ResultStatus::ErrorEncrypted;
     }
