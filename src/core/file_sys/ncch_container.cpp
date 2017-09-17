@@ -104,7 +104,13 @@ Loader::ResultStatus NCCHContainer::OpenFile(std::string filepath) {
     this->filepath = filepath;
     file = FileUtil::IOFile(filepath, "rb");
 
-    LOG_DEBUG(Service_FS, "Opening %s", filepath.c_str());
+    if (!file.IsOpen()) {
+        LOG_WARNING(Service_FS, "Failed to open %s", filepath.c_str());
+        return Loader::ResultStatus::Error;
+    }
+
+    LOG_DEBUG(Service_FS, "Opened %s", filepath.c_str());
+    return Loader::ResultStatus::Success;
 }
 
 Loader::ResultStatus NCCHContainer::Load() {
