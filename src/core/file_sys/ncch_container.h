@@ -168,10 +168,10 @@ namespace FileSys {
  */
 class NCCHContainer {
 public:
-    NCCHContainer(std::string filepath);
+    NCCHContainer(const std::string& filepath);
     NCCHContainer() {}
 
-    Loader::ResultStatus OpenFile(std::string filepath);
+    Loader::ResultStatus OpenFile(const std::string& filepath);
 
     /**
      * Ensure ExeFS and exheader is loaded and ready for reading sections
