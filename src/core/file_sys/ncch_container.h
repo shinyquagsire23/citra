@@ -98,7 +98,7 @@ struct ExHeader_DependencyList {
 
 struct ExHeader_SystemInfo {
     u64 save_data_size;
-    u8 jump_id[8];
+    u64_le jump_id;
     u8 reserved_2[0x30];
 };
 
@@ -204,11 +204,33 @@ public:
      */
     Loader::ResultStatus ReadProgramId(u64_le& program_id);
 
+    /**
+     * Checks whether the NCCH container contains an ExeFS
+     * @return bool check result
+     */
+    bool HasExeFS();
+
+    /**
+     * Checks whether the NCCH container contains a RomFS
+     * @return bool check result
+     */
+    bool HasRomFS();
+
+    /**
+     * Checks whether the NCCH container contains an ExHeader
+     * @return bool check result
+     */
+    bool HasExHeader();
+
     NCCH_Header ncch_header;
     ExeFs_Header exefs_header;
     ExHeader_Header exheader_header;
 
 private:
+    bool has_exheader = false;
+    bool has_exefs = false;
+    bool has_romfs = false;
+
     bool is_loaded = false;
     bool is_compressed = false;
 

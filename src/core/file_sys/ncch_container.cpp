@@ -18,7 +18,6 @@ namespace FileSys {
 
 static const int kMaxSections = 8;   ///< Maximum number of sections (files) in an ExeFs
 static const int kBlockSize = 0x200; ///< Size of ExeFS blocks (in bytes)
-static const u64 UPDATE_MASK = 0x0000000e00000000;
 
 /**
  * Get the decompressed size of an LZSS compressed ExeFS file
@@ -135,50 +134,59 @@ Loader::ResultStatus NCCHContainer::Load() {
     if (Loader::MakeMagic('N', 'C', 'C', 'H') != ncch_header.magic)
         return Loader::ResultStatus::ErrorInvalidFormat;
 
-    // Read ExHeader...
+    // System archives and DLC don't have an extended header but have RomFS
+    if (ncch_header.extended_header_size) {
+        if (file.ReadBytes(&exheader_header, sizeof(ExHeader_Header)) != sizeof(ExHeader_Header))
+            return Loader::ResultStatus::Error;
 
-    if (file.ReadBytes(&exheader_header, sizeof(ExHeader_Header)) != sizeof(ExHeader_Header))
-        return Loader::ResultStatus::Error;
+        is_compressed = (exheader_header.codeset_info.flags.flag & 1) == 1;
+        u32 entry_point = exheader_header.codeset_info.text.address;
+        u32 code_size = exheader_header.codeset_info.text.code_size;
+        u32 stack_size = exheader_header.codeset_info.stack_size;
+        u32 bss_size = exheader_header.codeset_info.bss_size;
+        u32 core_version = exheader_header.arm11_system_local_caps.core_version;
+        u8 priority = exheader_header.arm11_system_local_caps.priority;
+        u8 resource_limit_category =
+            exheader_header.arm11_system_local_caps.resource_limit_category;
 
-    is_compressed = (exheader_header.codeset_info.flags.flag & 1) == 1;
-    u32 entry_point = exheader_header.codeset_info.text.address;
-    u32 code_size = exheader_header.codeset_info.text.code_size;
-    u32 stack_size = exheader_header.codeset_info.stack_size;
-    u32 bss_size = exheader_header.codeset_info.bss_size;
-    u32 core_version = exheader_header.arm11_system_local_caps.core_version;
-    u8 priority = exheader_header.arm11_system_local_caps.priority;
-    u8 resource_limit_category = exheader_header.arm11_system_local_caps.resource_limit_category;
+        LOG_DEBUG(Service_FS, "Name:                        %s", exheader_header.codeset_info.name);
+        LOG_DEBUG(Service_FS, "Program ID:                  %016" PRIX64, ncch_header.program_id);
+        LOG_DEBUG(Service_FS, "Code compressed:             %s", is_compressed ? "yes" : "no");
+        LOG_DEBUG(Service_FS, "Entry point:                 0x%08X", entry_point);
+        LOG_DEBUG(Service_FS, "Code size:                   0x%08X", code_size);
+        LOG_DEBUG(Service_FS, "Stack size:                  0x%08X", stack_size);
+        LOG_DEBUG(Service_FS, "Bss size:                    0x%08X", bss_size);
+        LOG_DEBUG(Service_FS, "Core version:                %d", core_version);
+        LOG_DEBUG(Service_FS, "Thread priority:             0x%X", priority);
+        LOG_DEBUG(Service_FS, "Resource limit category:     %d", resource_limit_category);
+        LOG_DEBUG(Service_FS, "System Mode:                 %d",
+                  static_cast<int>(exheader_header.arm11_system_local_caps.system_mode));
 
-    LOG_DEBUG(Service_FS, "Name:                        %s", exheader_header.codeset_info.name);
-    LOG_DEBUG(Service_FS, "Program ID:                  %016" PRIX64, ncch_header.program_id);
-    LOG_DEBUG(Service_FS, "Code compressed:             %s", is_compressed ? "yes" : "no");
-    LOG_DEBUG(Service_FS, "Entry point:                 0x%08X", entry_point);
-    LOG_DEBUG(Service_FS, "Code size:                   0x%08X", code_size);
-    LOG_DEBUG(Service_FS, "Stack size:                  0x%08X", stack_size);
-    LOG_DEBUG(Service_FS, "Bss size:                    0x%08X", bss_size);
-    LOG_DEBUG(Service_FS, "Core version:                %d", core_version);
-    LOG_DEBUG(Service_FS, "Thread priority:             0x%X", priority);
-    LOG_DEBUG(Service_FS, "Resource limit category:     %d", resource_limit_category);
-    LOG_DEBUG(Service_FS, "System Mode:                 %d",
-              static_cast<int>(exheader_header.arm11_system_local_caps.system_mode));
+        if (exheader_header.system_info.jump_id != ncch_header.program_id) {
+            LOG_ERROR(Service_FS, "ExHeader Program ID mismatch: the ROM is probably encrypted.");
+            return Loader::ResultStatus::ErrorEncrypted;
+        }
 
-    if (exheader_header.arm11_system_local_caps.program_id &
-        ~UPDATE_MASK != ncch_header.program_id) {
-        LOG_ERROR(Service_FS, "ExHeader Program ID mismatch: the ROM is probably encrypted.");
-        return Loader::ResultStatus::ErrorEncrypted;
+        has_exheader = true;
     }
 
-    // Read ExeFS...
+    // DLC can have an ExeFS and a RomFS but no extended header
+    if (ncch_header.exefs_size) {
+        exefs_offset = ncch_header.exefs_offset * kBlockSize;
+        u32 exefs_size = ncch_header.exefs_size * kBlockSize;
 
-    exefs_offset = ncch_header.exefs_offset * kBlockSize;
-    u32 exefs_size = ncch_header.exefs_size * kBlockSize;
+        LOG_DEBUG(Service_FS, "ExeFS offset:                0x%08X", exefs_offset);
+        LOG_DEBUG(Service_FS, "ExeFS size:                  0x%08X", exefs_size);
 
-    LOG_DEBUG(Service_FS, "ExeFS offset:                0x%08X", exefs_offset);
-    LOG_DEBUG(Service_FS, "ExeFS size:                  0x%08X", exefs_size);
+        file.Seek(exefs_offset + ncch_offset, SEEK_SET);
+        if (file.ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header))
+            return Loader::ResultStatus::Error;
 
-    file.Seek(exefs_offset + ncch_offset, SEEK_SET);
-    if (file.ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header))
-        return Loader::ResultStatus::Error;
+        has_exefs = true;
+    }
+
+    if (ncch_header.romfs_offset != 0 && ncch_header.romfs_size != 0)
+        has_romfs = true;
 
     is_loaded = true;
     return Loader::ResultStatus::Success;
@@ -191,6 +199,9 @@ Loader::ResultStatus NCCHContainer::LoadSectionExeFS(const char* name, std::vect
     Loader::ResultStatus result = Load();
     if (result != Loader::ResultStatus::Success)
         return result;
+
+    if (!has_exefs)
+        return Loader::ResultStatus::ErrorNotUsed;
 
     LOG_DEBUG(Service_FS, "%d sections:", kMaxSections);
     // Iterate through the ExeFs archive until we find a section with the specified name...
@@ -240,29 +251,33 @@ Loader::ResultStatus NCCHContainer::ReadRomFS(std::shared_ptr<FileUtil::IOFile>&
     if (!file.IsOpen())
         return Loader::ResultStatus::Error;
 
-    // Check if the NCCH has a RomFS...
-    if (ncch_header.romfs_offset != 0 && ncch_header.romfs_size != 0) {
-        u32 romfs_offset = ncch_offset + (ncch_header.romfs_offset * kBlockSize) + 0x1000;
-        u32 romfs_size = (ncch_header.romfs_size * kBlockSize) - 0x1000;
+    Loader::ResultStatus result = Load();
+    if (result != Loader::ResultStatus::Success)
+        return result;
 
-        LOG_DEBUG(Service_FS, "RomFS offset:           0x%08X", romfs_offset);
-        LOG_DEBUG(Service_FS, "RomFS size:             0x%08X", romfs_size);
-
-        if (file.GetSize() < romfs_offset + romfs_size)
-            return Loader::ResultStatus::Error;
-
-        // We reopen the file, to allow its position to be independent from file's
-        romfs_file = std::make_shared<FileUtil::IOFile>(filepath, "rb");
-        if (!romfs_file->IsOpen())
-            return Loader::ResultStatus::Error;
-
-        offset = romfs_offset;
-        size = romfs_size;
-
-        return Loader::ResultStatus::Success;
+    if (!has_romfs) {
+        LOG_DEBUG(Service_FS, "RomFS requested from NCCH which has no RomFS");
+        return Loader::ResultStatus::ErrorNotUsed;
     }
-    LOG_DEBUG(Service_FS, "NCCH has no RomFS");
-    return Loader::ResultStatus::ErrorNotUsed;
+
+    u32 romfs_offset = ncch_offset + (ncch_header.romfs_offset * kBlockSize) + 0x1000;
+    u32 romfs_size = (ncch_header.romfs_size * kBlockSize) - 0x1000;
+
+    LOG_DEBUG(Service_FS, "RomFS offset:           0x%08X", romfs_offset);
+    LOG_DEBUG(Service_FS, "RomFS size:             0x%08X", romfs_size);
+
+    if (file.GetSize() < romfs_offset + romfs_size)
+        return Loader::ResultStatus::Error;
+
+    // We reopen the file, to allow its position to be independent from file's
+    romfs_file = std::make_shared<FileUtil::IOFile>(filepath, "rb");
+    if (!romfs_file->IsOpen())
+        return Loader::ResultStatus::Error;
+
+    offset = romfs_offset;
+    size = romfs_size;
+
+    return Loader::ResultStatus::Success;
 }
 
 Loader::ResultStatus NCCHContainer::ReadProgramId(u64_le& program_id) {
@@ -272,6 +287,30 @@ Loader::ResultStatus NCCHContainer::ReadProgramId(u64_le& program_id) {
 
     program_id = ncch_header.program_id;
     return Loader::ResultStatus::Success;
+}
+
+bool NCCHContainer::HasExeFS() {
+    Loader::ResultStatus result = Load();
+    if (result != Loader::ResultStatus::Success)
+        return false;
+
+    return has_exefs;
+}
+
+bool NCCHContainer::HasRomFS() {
+    Loader::ResultStatus result = Load();
+    if (result != Loader::ResultStatus::Success)
+        return false;
+
+    return has_romfs;
+}
+
+bool NCCHContainer::HasExHeader() {
+    Loader::ResultStatus result = Load();
+    if (result != Loader::ResultStatus::Success)
+        return false;
+
+    return has_exheader;
 }
 
 } // namespace FileSys
